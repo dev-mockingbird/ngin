@@ -1,0 +1,22 @@
+{
+    header.request-id == null {
+        header.request-id = uuid;
+    }
+    response.header.request-id = header.request-id;
+    listen 6000 {
+        host == hello.com | world.com {
+            backend 127.0.0.1:6090 | 127.0.0.1:6091;
+            header.Authorization ~ * {
+                call [POST http://127.0.0.1:6080/authentication];
+                response.code == 200 {
+                    header.user-id = response.userId;
+                }
+                return;
+            }
+            path !~ /login | /register | /idinfo/* {
+                response.code = 401;
+                response.body = "unauthorized";
+            }
+        }
+    }
+}
