@@ -48,4 +48,9 @@ func (f flt) Compare(val Value) int {
 
 func (f flt) Slice() []Value {
 	return []Value{f}
+
+}
+
+func (f flt) Value() Value {
+	return f
 }

@@ -48,3 +48,7 @@ func (str str) Slice() []Value {
 func (str str) Compare(val Value) int {
 	return strings.Compare(str.content, val.String())
 }
+
+func (str str) Value() Value {
+	return str
+}

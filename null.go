@@ -37,3 +37,7 @@ func (n Null) Compare(v Value) int {
 	}
 	return -1
 }
+
+func (n Null) Value() Value {
+	return n
+}

@@ -5,47 +5,51 @@
 
 package ngin
 
-type Bool struct {
+type bol struct {
 	value bool
 }
 
-func (b Bool) Int() uint64 {
+func Bool(value bool) Value {
+	return bol{value: value}
+}
+
+func (b bol) Int() uint64 {
 	if b.value {
 		return 1
 	}
 	return 0
 }
 
-func (b Bool) Float() float64 {
+func (b bol) Float() float64 {
 	if b.value {
 		return 1
 	}
 	return 0
 }
 
-func (b Bool) String() string {
+func (b bol) String() string {
 	if b.value {
 		return "true"
 	}
 	return "false"
 }
 
-func (b Bool) Bytes() []byte {
+func (b bol) Bytes() []byte {
 	if b.value {
 		return []byte{'t', 'r', 'u', 'e'}
 	}
 	return []byte{'f', 'a', 'l', 's', 'e'}
 }
 
-func (b Bool) Slice() []Value {
+func (b bol) Slice() []Value {
 	return []Value{b}
 }
 
-func (b Bool) Bool() bool {
+func (b bol) Bool() bool {
 	return b.value
 }
 
-func (b Bool) Compare(v Value) int {
+func (b bol) Compare(v Value) int {
 	if b.value == v.Bool() {
 		return 0
 	} else if b.value {
@@ -53,4 +57,8 @@ func (b Bool) Compare(v Value) int {
 	} else {
 		return -1
 	}
+}
+
+func (b bol) Value() Value {
+	return b
 }

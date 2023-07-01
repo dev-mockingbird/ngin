@@ -24,9 +24,8 @@ const (
 	GT
 	LTE
 	LT
-	In
-	NotIn
 	Like
+	NotLike
 )
 
 type ValueAble interface {
@@ -41,9 +40,15 @@ type MatchStmt struct {
 func (m MatchStmt) Execute(ctx *Context) (bool, error) {
 	switch m.Operator {
 	case EQ:
+		if s, ok := m.Right.(Slice); ok {
+			return s.Contain(m.Left.Value()), nil
+		}
 		r := m.Left.Value().Compare(m.Right.Value())
 		return r == 0, nil
 	case NEQ:
+		if s, ok := m.Right.(Slice); ok {
+			return !s.Contain(m.Left.Value()), nil
+		}
 		r := m.Left.Value().Compare(m.Right.Value())
 		return r != 0, nil
 	case GTE:
@@ -58,27 +63,40 @@ func (m MatchStmt) Execute(ctx *Context) (bool, error) {
 	case LT:
 		r := m.Left.Value().Compare(m.Right.Value())
 		return r < 0, nil
-	case In:
-		for _, v := range m.Right.Value().Slice() {
-			if m.Left.Value().Compare(v) == 0 {
-				return true, nil
-			}
-		}
-		return false, nil
-	case NotIn:
-		for _, v := range m.Right.Value().Slice() {
-			if m.Left.Value().Compare(v) == 0 {
-				return false, nil
-			}
-		}
-		return true, nil
 	case Like:
-		r := m.Right.Value().String()
-		re, err := regexp.Compile(r)
-		if err != nil {
-			return false, err
+		like := func(l, r string) (bool, error) {
+			re, err := regexp.Compile(r)
+			if err != nil {
+				return false, err
+			}
+			return re.MatchString(l), nil
 		}
-		return re.Match(m.Left.Value().Bytes()), nil
+		if s, ok := m.Right.(Slice); ok {
+			for _, item := range s {
+				if ok, err := like(m.Left.Value().String(), item.String()); err != nil || ok {
+					return ok, err
+				}
+			}
+			return false, nil
+		}
+		return like(m.Left.Value().String(), m.Right.Value().String())
+	case NotLike:
+		notlike := func(l, r string) (bool, error) {
+			re, err := regexp.Compile(r)
+			if err != nil {
+				return false, err
+			}
+			return !re.MatchString(l), nil
+		}
+		if s, ok := m.Right.(Slice); ok {
+			for _, item := range s {
+				if ok, err := notlike(m.Left.Value().String(), item.String()); err != nil || ok {
+					return ok, err
+				}
+			}
+			return false, nil
+		}
+		return notlike(m.Left.Value().String(), m.Right.Value().String())
 	default:
 		return false, errors.New("not supported operator")
 	}
@@ -101,7 +119,7 @@ type FuncStmt struct {
 
 func (f FuncStmt) Execute(ctx *Context) (bool, error) {
 	if funk, ok := ctx.funks[f.Name]; ok {
-		return funk(f.Args...)
+		return funk(ctx, f.Args...)
 	}
 	return false, errors.New("func not found")
 }
@@ -113,7 +131,7 @@ func (EmptyStmt) Execute(ctx *Context) (bool, error) {
 }
 
 type MatchThenStmt struct {
-	Match MatchStmt
+	Match Stmt
 	Stmts []Stmt
 }
 
