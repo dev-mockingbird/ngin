@@ -7,7 +7,6 @@ package ngin
 
 import (
 	"errors"
-	"fmt"
 	"io"
 )
 
@@ -25,7 +24,7 @@ func init() {
 	}
 }
 
-// Stmt -> Stmt? { Stmt;* } | Stmt; | BoolStmt | AssignmentStmt | CallStmt
+// Stmt -> Stmt? { Stmt;* } | BoolStmt; | AssignmentStmt; | CallStmt;
 // BoolStmt -> ComparableValue Operator ComparableValue
 // ComparableValue -> Array | Name | Value
 // Array -> Name | Value '|' Name | Value
@@ -109,7 +108,7 @@ func (p *Parser) smallStmt() (Stmt, error) {
 		p.useToken()
 		return ReturnStmt{}, nil
 	case TokenName:
-		left = Variable{Name: string(p.token.bs)}
+		left = &Variable{Name: string(p.token.bs)}
 		p.useToken()
 		if err := p.nextToken(); err != nil {
 			return nil, err
@@ -133,7 +132,7 @@ func (p *Parser) smallStmt() (Stmt, error) {
 			if right, err = p.nameOrValue(); err != nil {
 				return nil, err
 			}
-			return AssignmentStmt{Name: left.(Variable).Name, Value: right}, nil
+			return AssignmentStmt{Name: left.(*Variable).Name, Value: right}, nil
 		} else if p.token.Type == TokenFuncArgBegin {
 			p.useToken()
 			var args []Value
@@ -147,7 +146,7 @@ func (p *Parser) smallStmt() (Stmt, error) {
 				} else if v == nil {
 					if p.token.Type == TokenFuncArgEnd {
 						p.useToken()
-						return FuncStmt{Name: left.(Variable).Name, Args: args}, nil
+						return FuncStmt{Name: left.(*Variable).Name, Args: args}, nil
 					}
 					return nil, errors.New("unexpected token")
 				}
@@ -159,11 +158,11 @@ func (p *Parser) smallStmt() (Stmt, error) {
 			return nil, err
 		} else if v == nil {
 			// no args func
-			return FuncStmt{Name: left.(Variable).Name}, nil
+			return FuncStmt{Name: left.(*Variable).Name}, nil
 		}
 		// has 1 arg func
 		p.useToken()
-		return FuncStmt{Name: left.(Variable).Name, Args: []Value{v}}, nil
+		return FuncStmt{Name: left.(*Variable).Name, Args: []Value{v}}, nil
 	}
 	return nil, errors.New("unexpected token")
 }
@@ -174,7 +173,7 @@ func (p *Parser) nameOrValue() (Value, error) {
 		case TokenString, TokenInt, TokenFloat:
 			return Bytes(p.token.bs)
 		case TokenName:
-			return Variable{Name: string(p.token.bs)}
+			return &Variable{Name: string(p.token.bs)}
 		case TokenFalse:
 			return Bool(false)
 		case TokenTrue:
@@ -224,7 +223,7 @@ func (p *Parser) nextToken() (err error) {
 		p.useToken()
 		return p.nextToken()
 	}
-	fmt.Printf("token: %s\n", p.token.String())
+	// fmt.Printf("token: %s\n", p.token.String())
 	return
 }
 
