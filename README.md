@@ -1,7 +1,15 @@
-# Copyright (c) 2023 Yang,Zhong
-# 
-# This software is released under the MIT License.
-# https://opensource.org/licenses/MIT
+<!--
+ Copyright (c) 2023 Yang,Zhong
+ 
+ This software is released under the MIT License.
+ https://opensource.org/licenses/MIT
+-->
+
+## NGIN, not X
+
+this is an programmable API gateway, use the following script to config your API gateway
+
+```
 
 # listen tls, please file the below line
 cert-file = "";
@@ -40,3 +48,7 @@ listen 6000 {
 listen 7000 {
     call http://127.0.0.1:5050;
 }
+
+```
+
+## FEATURE
