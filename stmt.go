@@ -52,13 +52,13 @@ func (m MatchStmt) Execute(ctx *Context) (bool, error) {
 	switch m.Operator {
 	case EQ:
 		if s, ok := right.(Slice); ok {
-			return s.Contain(left), nil
+			return s.WithContext(ctx).Contain(left), nil
 		}
 		r := left.Compare(right)
 		return r == 0, nil
 	case NEQ:
 		if s, ok := right.(Slice); ok {
-			return !s.Contain(left), nil
+			return !s.WithContext(ctx).Contain(left), nil
 		}
 		r := left.Compare(right)
 		return r != 0, nil
@@ -83,6 +83,7 @@ func (m MatchStmt) Execute(ctx *Context) (bool, error) {
 			return re.MatchString(l), nil
 		}
 		if s, ok := right.(Slice); ok {
+			s = s.WithContext(ctx)
 			for _, item := range s {
 				if ok, err := like(left.String(), item.String()); err != nil || ok {
 					return ok, err
@@ -100,6 +101,7 @@ func (m MatchStmt) Execute(ctx *Context) (bool, error) {
 			return !re.MatchString(l), nil
 		}
 		if s, ok := right.(Slice); ok {
+			s = s.WithContext(ctx)
 			for _, item := range s {
 				if ok, err := notlike(left.String(), item.String()); err != nil || ok {
 					return ok, err
@@ -122,7 +124,7 @@ func (a AssignmentStmt) Execute(ctx *Context) (bool, error) {
 	if v, ok := a.Value.(*Variable); ok {
 		v.Context = ctx
 	}
-	ctx.RegisterVariable(a.Name, a.Value)
+	ctx.BindValue(a.Name, a.Value)
 	return true, nil
 }
 
@@ -132,7 +134,7 @@ type FuncStmt struct {
 }
 
 func (f FuncStmt) Execute(ctx *Context) (bool, error) {
-	if funk, ok := ctx.funks[f.Name]; ok {
+	if funk := ctx.GetFunc(f.Name); funk != nil {
 		return funk(ctx, f.Args...)
 	}
 	return false, fmt.Errorf("func [%s] not found", f.Name)
@@ -153,7 +155,7 @@ func (mt MatchThenStmt) Execute(ctx *Context) (bool, error) {
 	ctx.stmts = mt.Stmts
 	matched, err := mt.Match.Execute(ctx)
 	if err != nil || !matched {
-		return matched, err
+		return true, err
 	}
 	ctx.stmts = nil
 	for _, s := range mt.Stmts {

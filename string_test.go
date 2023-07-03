@@ -10,7 +10,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/dev-mockingbir/ngin"
+	"github.com/dev-mockingbird/ngin"
 )
 
 func TestString(t *testing.T) {

@@ -2,7 +2,6 @@ package ngin
 
 import (
 	"bytes"
-	"fmt"
 	"testing"
 )
 
@@ -38,7 +37,7 @@ func TestLex(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		fmt.Printf("%d, %s\n", token.Type, token.String())
+		// fmt.Printf("%d, %s\n", token.Type, token.String())
 		if token.Type == TokenEOF {
 			break
 		}

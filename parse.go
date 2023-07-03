@@ -7,8 +7,13 @@ package ngin
 
 import (
 	"errors"
+	"fmt"
 	"io"
 )
+
+func ErrUnexpectedToken(t *Token) error {
+	return fmt.Errorf("unexpected token [%s] at [%d, %d]", t.String(), t.Row, t.Col)
+}
 
 var operatorMap map[int]Operator
 
@@ -86,6 +91,8 @@ func (p *Parser) Stmt() (Stmt, error) {
 		if p.token.Type == TokenStmtEnd {
 			p.useToken()
 			return stmt, nil
+		} else if p.token.Type != TokenBlockBegin {
+			return nil, ErrUnexpectedToken(&p.token)
 		}
 		matchThenStmt, err := p.Stmt()
 		if err != nil {
@@ -93,7 +100,8 @@ func (p *Parser) Stmt() (Stmt, error) {
 		}
 		mts, ok := matchThenStmt.(MatchThenStmt)
 		if !ok {
-			return nil, errors.New("unexpected statement")
+			// this should never reach
+			return nil, errors.New("this should never be reached")
 		}
 		mts.Match = stmt
 		return mts, nil
@@ -108,7 +116,7 @@ func (p *Parser) smallStmt() (Stmt, error) {
 		p.useToken()
 		return ReturnStmt{}, nil
 	case TokenName:
-		left = &Variable{Name: string(p.token.bs)}
+		left = &Variable{Name: string(p.token.Raw)}
 		p.useToken()
 		if err := p.nextToken(); err != nil {
 			return nil, err
@@ -148,7 +156,7 @@ func (p *Parser) smallStmt() (Stmt, error) {
 						p.useToken()
 						return FuncStmt{Name: left.(*Variable).Name, Args: args}, nil
 					}
-					return nil, errors.New("unexpected token")
+					return nil, ErrUnexpectedToken(&p.token)
 				}
 				args = append(args, v)
 			}
@@ -160,20 +168,39 @@ func (p *Parser) smallStmt() (Stmt, error) {
 			// no args func
 			return FuncStmt{Name: left.(*Variable).Name}, nil
 		}
-		// has 1 arg func
-		p.useToken()
 		return FuncStmt{Name: left.(*Variable).Name, Args: []Value{v}}, nil
+	default:
+		var err error
+		var ok bool
+		// as a match statement
+		if left, err = p.nameOrValue(); err != nil {
+			return nil, err
+		}
+		if left == nil {
+			return nil, ErrUnexpectedToken(&p.token)
+		}
+		p.useToken()
+		if operator, ok = operatorMap[p.token.Type]; !ok {
+			return nil, ErrUnexpectedToken(&p.token)
+		}
+		p.useToken()
+		if right, err = p.nameOrValue(); err != nil {
+			return nil, err
+		}
+		if right == nil {
+			return nil, ErrUnexpectedToken(&p.token)
+		}
+		return MatchStmt{Left: left, Operator: operator, Right: right}, nil
 	}
-	return nil, errors.New("unexpected token")
 }
 
 func (p *Parser) nameOrValue() (Value, error) {
 	getValue := func() Value {
 		switch p.token.Type {
 		case TokenString, TokenInt, TokenFloat:
-			return Bytes(p.token.bs)
+			return Bytes(p.token.Raw)
 		case TokenName:
-			return &Variable{Name: string(p.token.bs)}
+			return &Variable{Name: string(p.token.Raw)}
 		case TokenFalse:
 			return Bool(false)
 		case TokenTrue:

@@ -114,14 +114,16 @@ func (c UnexpectedChar) Error() string {
 
 type Token struct {
 	Type int
-	bs   []byte
+	Row  int
+	Col  int
+	Raw  []byte
 }
 
 func (t Token) String() string {
 	if s, ok := tokenMap[t.Type]; ok {
 		return s
 	}
-	return string(t.bs)
+	return string(t.Raw)
 }
 
 type Lexer struct {
@@ -133,13 +135,14 @@ type Lexer struct {
 }
 
 func NewLexer() *Lexer {
-	return &Lexer{b: make([]byte, 1)}
+	return &Lexer{b: make([]byte, 1), col: 1, row: 1}
 }
 
 func (l *Lexer) Scan(r io.Reader) (t Token, err error) {
 	if l.b == nil {
 		l.b = make([]byte, 1)
 	}
+	t.Row, t.Col = l.resolvePosition()
 	for {
 		if len(l.stash) > 0 {
 			l.b[0] = l.stash[0]
@@ -196,20 +199,12 @@ func (l *Lexer) Scan(r io.Reader) (t Token, err error) {
 			return
 		}
 		if err != nil {
-			if len(l.stash) == 0 {
-				err = PosError{err: err, Col: l.col, Row: l.row}
-				return
-			}
-			col := l.col
-			row := l.row - bytes.Count(l.stash, []byte{'\n'})
-			if row != l.row {
-				col -= len(l.stash[bytes.LastIndex(l.stash, []byte{'\n'}):])
-			}
-			err = PosError{err: err, Col: col, Row: row}
+			row, col := l.resolvePosition()
+			err = PosError{err: err, Row: row, Col: col}
 			return
 		}
 		if l.b[0] == '\n' {
-			l.col = 0
+			l.col = 1
 			l.row++
 			continue
 		}
@@ -217,13 +212,22 @@ func (l *Lexer) Scan(r io.Reader) (t Token, err error) {
 	}
 }
 
+func (l *Lexer) resolvePosition() (int, int) {
+	col := l.col
+	row := l.row - bytes.Count(l.stash, []byte{'\n'})
+	if row != l.row {
+		col = len(l.stash[bytes.LastIndex(l.stash, []byte{'\n'}):])
+	}
+	return row, col
+}
+
 func (l *Lexer) stateNumber(t *Token) error {
 	switch {
 	case l.b[0] == '.':
-		t.bs = append(t.bs, '.')
+		t.Raw = append(t.Raw, '.')
 		l.state = stateFloat
 	case l.isNumber():
-		t.bs = append(t.bs, l.b[0])
+		t.Raw = append(t.Raw, l.b[0])
 	case l.isWhitespace():
 		t.Type = TokenInt
 		l.state = stateEnd
@@ -233,7 +237,7 @@ func (l *Lexer) stateNumber(t *Token) error {
 		l.stash = []byte{l.b[0]}
 	default:
 		l.state = stateString
-		t.bs = append(t.bs, l.b[0])
+		t.Raw = append(t.Raw, l.b[0])
 	}
 	return nil
 }
@@ -241,7 +245,7 @@ func (l *Lexer) stateNumber(t *Token) error {
 func (l *Lexer) stateFloat(t *Token) error {
 	switch {
 	case l.isNumber():
-		t.bs = append(t.bs, l.b[0])
+		t.Raw = append(t.Raw, l.b[0])
 	case l.isWhitespace():
 		t.Type = TokenFloat
 		l.state = stateEnd
@@ -251,7 +255,7 @@ func (l *Lexer) stateFloat(t *Token) error {
 		l.stash = []byte{l.b[0]}
 	default:
 		l.state = stateString
-		t.bs = append(t.bs, l.b[0])
+		t.Raw = append(t.Raw, l.b[0])
 	}
 	return nil
 }
@@ -262,7 +266,7 @@ func (l *Lexer) stateComment(t *Token) error {
 		l.state = stateEnd
 		return nil
 	}
-	t.bs = append(t.bs, l.b[0])
+	t.Raw = append(t.Raw, l.b[0])
 	return nil
 }
 
@@ -280,8 +284,8 @@ func (l *Lexer) stateEqual(t *Token) error {
 
 func (l *Lexer) stateNull(t *Token) error {
 	switch {
-	case len(t.bs) < 4 && null[len(t.bs)] == l.b[0]:
-		t.bs = append(t.bs, l.b[0])
+	case len(t.Raw) < 4 && null[len(t.Raw)] == l.b[0]:
+		t.Raw = append(t.Raw, l.b[0])
 		return nil
 	case l.isWhitespace():
 		t.Type = TokenNull
@@ -300,8 +304,8 @@ func (l *Lexer) stateNull(t *Token) error {
 
 func (l *Lexer) stateTrue(t *Token) error {
 	switch {
-	case len(t.bs) < 4 && tru[len(t.bs)] == l.b[0]:
-		t.bs = append(t.bs, l.b[0])
+	case len(t.Raw) < 4 && tru[len(t.Raw)] == l.b[0]:
+		t.Raw = append(t.Raw, l.b[0])
 		return nil
 	case l.isWhitespace():
 		t.Type = TokenTrue
@@ -314,14 +318,15 @@ func (l *Lexer) stateTrue(t *Token) error {
 		return nil
 	default:
 		l.state = stateName
+		t.Raw = append(t.Raw, l.b[0])
 		return nil
 	}
 }
 
 func (l *Lexer) stateFalse(t *Token) error {
 	switch {
-	case len(t.bs) < 4 && fls[len(t.bs)] == l.b[0]:
-		t.bs = append(t.bs, l.b[0])
+	case len(t.Raw) < 4 && fls[len(t.Raw)] == l.b[0]:
+		t.Raw = append(t.Raw, l.b[0])
 		return nil
 	case l.isWhitespace():
 		t.Type = TokenFalse
@@ -333,6 +338,7 @@ func (l *Lexer) stateFalse(t *Token) error {
 		l.stash = []byte{l.b[0]}
 		return nil
 	default:
+		t.Raw = append(t.Raw, l.b[0])
 		l.state = stateName
 		return nil
 	}
@@ -340,8 +346,8 @@ func (l *Lexer) stateFalse(t *Token) error {
 
 func (l *Lexer) stateReturn(t *Token) error {
 	switch {
-	case len(t.bs) < 6 && rtrn[len(t.bs)] == l.b[0]:
-		t.bs = append(t.bs, l.b[0])
+	case len(t.Raw) < 6 && rtrn[len(t.Raw)] == l.b[0]:
+		t.Raw = append(t.Raw, l.b[0])
 	case l.isWhitespace():
 		t.Type = TokenReturn
 		l.state = stateEnd
@@ -351,6 +357,7 @@ func (l *Lexer) stateReturn(t *Token) error {
 		l.stash = []byte{l.b[0]}
 	default:
 		l.state = stateName
+		t.Raw = append(t.Raw, l.b[0])
 		return nil
 	}
 	return nil
@@ -369,7 +376,7 @@ func (l *Lexer) stateNot(t *Token) error {
 		l.state = stateEnd
 	default:
 		t.Type = TokenString
-		t.bs = []byte{'!', l.b[0]}
+		t.Raw = []byte{'!', l.b[0]}
 	}
 	return nil
 }
@@ -393,7 +400,7 @@ func (l *Lexer) stateAssignment(t *Token) error {
 func (l *Lexer) stateName(t *Token) error {
 	switch {
 	case l.isName():
-		t.bs = append(t.bs, l.b[0])
+		t.Raw = append(t.Raw, l.b[0])
 		return nil
 	case l.isWhitespace():
 		t.Type = TokenName
@@ -404,16 +411,16 @@ func (l *Lexer) stateName(t *Token) error {
 		l.stash = []byte{l.b[0]}
 	default:
 		l.state = stateString
-		t.bs = append(t.bs, l.b[0])
+		t.Raw = append(t.Raw, l.b[0])
 	}
 	return nil
 }
 
 func (l *Lexer) stateString(t *Token) error {
 	switch {
-	case l.b[0] == '"' && t.bs[0] == '"':
+	case l.b[0] == '"' && t.Raw[0] == '"':
 		t.Type = TokenString
-		t.bs = t.bs[1:]
+		t.Raw = t.Raw[1:]
 		l.state = stateEnd
 	case l.b[0] == ';':
 		t.Type = TokenString
@@ -423,7 +430,7 @@ func (l *Lexer) stateString(t *Token) error {
 		t.Type = TokenString
 		l.state = stateEnd
 	default:
-		t.bs = append(t.bs, l.b[0])
+		t.Raw = append(t.Raw, l.b[0])
 	}
 	return nil
 }
@@ -435,7 +442,7 @@ func (l *Lexer) stateLTE(t *Token) error {
 		l.state = stateEnd
 	default:
 		l.state = stateString
-		t.bs = []byte{'<', '=', l.b[0]}
+		t.Raw = []byte{'<', '=', l.b[0]}
 	}
 	return nil
 }
@@ -449,7 +456,7 @@ func (l *Lexer) stateLT(t *Token) error {
 		t.Type = TokenLT
 	default:
 		l.state = stateString
-		t.bs = []byte{'<', l.b[0]}
+		t.Raw = []byte{'<', l.b[0]}
 	}
 	return nil
 }
@@ -461,7 +468,7 @@ func (l *Lexer) stateGTE(t *Token) error {
 		l.state = stateEnd
 	default:
 		l.state = stateString
-		t.bs = []byte{'>', '=', l.b[0]}
+		t.Raw = []byte{'>', '=', l.b[0]}
 	}
 	return nil
 }
@@ -475,7 +482,7 @@ func (l *Lexer) stateGT(t *Token) error {
 		l.state = stateEnd
 	default:
 		l.state = stateString
-		t.bs = append(t.bs, l.b[0])
+		t.Raw = append(t.Raw, l.b[0])
 	}
 	return nil
 }
@@ -483,16 +490,16 @@ func (l *Lexer) stateGT(t *Token) error {
 func (l *Lexer) stateStart(t *Token) error {
 	switch l.b[0] {
 	case 't':
-		t.bs = append(t.bs, l.b[0])
+		t.Raw = append(t.Raw, l.b[0])
 		l.state = stateTrue
 	case 'f':
-		t.bs = append(t.bs, l.b[0])
+		t.Raw = append(t.Raw, l.b[0])
 		l.state = stateFalse
 	case 'n':
-		t.bs = append(t.bs, l.b[0])
+		t.Raw = append(t.Raw, l.b[0])
 		l.state = stateNull
 	case 'r':
-		t.bs = append(t.bs, l.b[0])
+		t.Raw = append(t.Raw, l.b[0])
 		l.state = stateReturn
 	case '{':
 		t.Type = TokenBlockBegin
@@ -527,19 +534,19 @@ func (l *Lexer) stateStart(t *Token) error {
 		l.state = stateComment
 	case '"':
 		l.state = stateString
-		t.bs = append(t.bs, '"')
+		t.Raw = append(t.Raw, '"')
 	default:
 		switch {
 		case l.isAlpha() || l.b[0] == '_' || l.b[0] == '-':
-			t.bs = append(t.bs, l.b[0])
+			t.Raw = append(t.Raw, l.b[0])
 			l.state = stateName
 		case l.isNumber():
-			t.bs = append(t.bs, l.b[0])
+			t.Raw = append(t.Raw, l.b[0])
 			l.state = stateNumber
 		case l.isWhitespace():
-			// auto clean whitespace
+			t.Row, t.Col = l.resolvePosition()
 		default:
-			t.bs = append(t.bs, l.b[0])
+			t.Raw = append(t.Raw, l.b[0])
 			l.state = stateString
 		}
 	}

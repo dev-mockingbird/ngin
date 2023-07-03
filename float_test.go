@@ -10,7 +10,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/dev-mockingbir/ngin"
+	"github.com/dev-mockingbird/ngin"
 )
 
 func TestFloat(t *testing.T) {
