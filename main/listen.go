@@ -14,6 +14,7 @@ import (
 )
 
 func withRequest(ctx *ngin.Context, req *http.Request) *ngin.Context {
+	ctx.Declare("path", "hash", "scheme", "host", "user-agent", "remote-addr", "method", "header", "response", "query")
 	ctx.Put("request", req)
 	ctx.BindFunc("log", log)
 	ctx.BindFunc("listen", listen)
@@ -34,7 +35,6 @@ func withRequest(ctx *ngin.Context, req *http.Request) *ngin.Context {
 	ctx.BindValue("hash", ngin.String(req.URL.Fragment))
 	ctx.BindValue("scheme", ngin.String(req.URL.Scheme))
 	ctx.BindValue("host", ngin.String(req.Host))
-	ctx.BindValue("port", ngin.String(req.URL.Port()))
 	ctx.BindValue("user-agent", ngin.String(req.UserAgent()))
 	ctx.BindValue("remote-addr", ngin.String(req.RemoteAddr))
 	ctx.BindValue("method", ngin.String(req.Method))
@@ -52,7 +52,7 @@ func withRequest(ctx *ngin.Context, req *http.Request) *ngin.Context {
 	return ctx
 }
 
-func requestBody(ctx *ngin.Context) ngin.Value {
+func requestBody(ctx *ngin.Context, args ...ngin.Value) ngin.Value {
 	req := ctx.Get("request")
 	if req == nil {
 		ctx.Logger().Logf(logf.Warn, "http request is nil")
@@ -100,7 +100,7 @@ type handler struct {
 }
 
 func (h handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	ctx := h.ctx.Folk()
+	ctx := h.ctx
 	withRequest(ctx, req)
 	var ok bool
 	var err error

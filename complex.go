@@ -1,73 +1,125 @@
 package ngin
 
-import "strings"
+import (
+	"encoding/json"
+	"strings"
+)
 
 type Complex struct {
-	attributes map[string]*Complex
-	value      Value
+	attributes map[string]Value
 }
 
 func NewComplex() *Complex {
-	return &Complex{attributes: make(map[string]*Complex), value: Null{}}
+	return &Complex{attributes: make(map[string]Value)}
 }
 
 func (c *Complex) Value() Value {
-	return c.value
+	return c
+}
+
+func (c *Complex) Bool() bool {
+	return false
+}
+
+func (c *Complex) Compare(val Value) int {
+	panic("can't compare for complex")
+}
+
+func (c *Complex) Int() uint64 {
+	panic("can't get int from complex")
+}
+
+func (c *Complex) Float() float64 {
+	panic("can't get float from complex")
+}
+
+func (c *Complex) String() string {
+	return string(c.Bytes())
+}
+
+func (c *Complex) Bytes() []byte {
+	bs, err := json.Marshal(ToMap(c))
+	if err != nil {
+		panic(err)
+	}
+	return bs
+}
+
+func (c *Complex) Slice() []Value {
+	return []Value{c}
 }
 
 func (c *Complex) SetAttr(attr string, val Value) {
 	if len(attr) == 0 {
-		c.value = val
 		return
 	}
 	idx := strings.Index(attr, ".")
 	if idx < 0 {
-		if a, ok := c.attributes[attr]; ok {
-			a.value = val
-			return
-		}
-		c.attributes[attr] = &Complex{value: val, attributes: make(map[string]*Complex)}
+		c.attributes[attr] = val
 		return
 	}
-	if a, ok := c.attributes[attr[:idx]]; ok {
-		a.SetAttr(attr[idx+1:], val)
-		return
+	a, ok := c.attributes[attr[:idx]]
+	if !ok {
+		c.attributes[attr[:idx]] = &Complex{attributes: make(map[string]Value)}
 	}
-	c.attributes[attr[:idx]] = &Complex{attributes: make(map[string]*Complex)}
-	c.attributes[attr[:idx]].SetAttr(attr[idx+1:], val)
+	if _, ok := a.(*Complex); !ok {
+		c.attributes[attr[:idx]] = &Complex{attributes: make(map[string]Value)}
+	}
+	c.attributes[attr[:idx]].(*Complex).SetAttr(attr[idx+1:], val)
+}
+
+func FromMap(m map[string]any) *Complex {
+	return nil
+}
+
+func ToMap(c *Complex) map[string]any {
+	return nil
 }
 
 func (c *Complex) Attr(attr string) Value {
-	return c.attr(attr, true)
+	sub := c.find(attr)
+	ret := []Value{}
+	if s, ok := sub.(*Complex); ok {
+		for k := range s.attributes {
+			ret = append(ret, String(k))
+		}
+	}
+	return Slice(ret)
 }
 
 func (c *Complex) AttrValue(attr string) Value {
-	return c.attr(attr, false)
+	return c.find(attr)
 }
 
-func (c *Complex) attr(attr string, key bool) Value {
-	if len(attr) == 0 {
-		return c.value
-	}
+func (c *Complex) find(attr string) Value {
 	idx := strings.Index(attr, ".")
-	if idx < 0 {
-		if attr == "*" {
-			ret := make(Slice, len(c.attributes))
-			for k, v := range c.attributes {
-				if key {
-					ret = append(ret, String(k))
-					continue
-				}
-				ret = append(ret, v.value)
-			}
-		}
-		if a, ok := c.attributes[attr]; ok {
-			return a.value
-		}
-		return Null{}
+	current := attr
+	last := ""
+	if idx > -1 {
+		current = attr[:idx]
+		last = attr[idx+1:]
 	}
-	if a, ok := c.attributes[attr[:idx]]; ok {
-		return a.attr(attr[idx+1:], key)
+	if current == "*" {
+		ret := []Value{}
+		for _, sub := range c.attributes {
+			if last != "" {
+				if s, ok := sub.(*Complex); ok {
+					ret = append(ret, s.find(last))
+				}
+				continue
+			}
+			ret = append(ret, c)
+		}
+		return Slice(ret)
+	}
+	if sub, ok := c.attributes[current]; ok {
+		if last != "" {
+			if s, ok := sub.(*Complex); ok {
+				return s.find(last)
+			}
+			return Null{}
+		}
+		return sub
 	}
 	return Null{}
 }

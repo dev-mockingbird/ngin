@@ -27,9 +27,6 @@ func backend(ctx *ngin.Context, args ...ngin.Value) (bool, error) {
 		}
 		ctx.BindValue("host", ngin.String(u.Host))
 		ctx.BindValue("scheme", ngin.String(u.Scheme))
-		if port := u.Port(); port != "" {
-			ctx.BindValue("port", ngin.String(port))
-		}
 		break
 	}
 	return true, nil

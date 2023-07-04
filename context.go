@@ -7,7 +7,7 @@ import (
 )
 
 type Func func(ctx *Context, values ...Value) (bool, error)
-type ValuedFunc func(ctx *Context) Value
+type ValuedFunc func(ctx *Context, values ...Value) Value
 
 type Value interface {
 	Int() uint64
@@ -22,6 +22,7 @@ type Value interface {
 
 type Variable struct {
 	Name    string
+	Args    []Value
 	Context *Context
 	value   Value
 }
@@ -34,7 +35,7 @@ func (v *Variable) Value() Value {
 		return Null{}
 	}
 	if f := v.Context.GetValuedFunc(v.Name); f != nil {
-		v.value = f(v.Context)
+		v.value = f(v.Context, v.Args...)
 		return v.value
 	}
 	if v.Context.IsVar(v.Name) {
@@ -72,7 +73,7 @@ func (v Variable) Compare(r Value) int {
 }
 
 type Context struct {
-	variables   Complex
+	variables   *Complex
 	valuedFunks map[string]ValuedFunc
 	vars        map[string]struct{}
 	funks       map[string]Func
@@ -84,7 +85,7 @@ type Context struct {
 
 func NewContext() *Context {
 	return &Context{
-		variables:   Complex{attributes: make(map[string]*Complex)},
+		variables:   NewComplex(),
 		vars:        make(map[string]struct{}),
 		valuedFunks: make(map[string]ValuedFunc),
 		bag:         make(map[string]any),
@@ -110,7 +111,21 @@ func (ctx *Context) Logger() logf.Logfer {
 	return ctx.logger
 }
 
+func (ctx *Context) Declare(names ...string) {
+	for _, name := range names {
+		ctx.vars[name] = struct{}{}
+	}
+}
+
 func (ctx *Context) BindValue(key string, val Value) {
+	if cctx := ctx.declareAt(key); cctx != nil {
+		cctx.bindValue(key, val)
+		return
+	}
+	ctx.bindValue(key, val)
+}
+
+func (ctx *Context) bindValue(key string, val Value) {
 	ctx.variables.SetAttr(key, val.Value())
 	if idx := strings.Index(key, "."); idx > -1 {
 		if _, ok := ctx.vars[key[:idx]]; !ok {
@@ -141,6 +156,20 @@ func defineVar(ctx *Context, args ...Value) (bool, error) {
 		}
 	}
 	return true, nil
+}
+
+func (ctx *Context) declareAt(name string) *Context {
+	idx := strings.Index(name, ".")
+	if idx > -1 {
+		name = name[:idx]
+	}
+	if _, ok := ctx.vars[name]; ok {
+		return ctx
+	}
+	if ctx.parent != nil {
+		return ctx.parent.declareAt(name)
+	}
+	return nil
 }
 
 func (ctx *Context) IsVar(name string) bool {

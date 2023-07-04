@@ -93,23 +93,24 @@ func (m MatchStmt) Execute(ctx *Context) (bool, error) {
 		}
 		return like(left.String(), right.String())
 	case NotLike:
-		notlike := func(l, r string) (bool, error) {
+		like := func(l, r string) (bool, error) {
 			re, err := regexp.Compile(r)
 			if err != nil {
 				return false, err
 			}
-			return !re.MatchString(l), nil
+			return re.MatchString(l), nil
 		}
 		if s, ok := right.(Slice); ok {
 			s = s.WithContext(ctx)
 			for _, item := range s {
-				if ok, err := notlike(left.String(), item.String()); err != nil || ok {
-					return ok, err
+				if ok, err := like(left.String(), item.String()); err != nil || ok {
+					return !ok, err
 				}
 			}
-			return false, nil
+			return true, nil
 		}
-		return notlike(left.String(), right.String())
+		ok, err := like(left.String(), right.String())
+		return !ok, err
 	default:
 		return false, errors.New("not supported operator")
 	}
@@ -158,8 +159,9 @@ func (mt MatchThenStmt) Execute(ctx *Context) (bool, error) {
 		return true, err
 	}
 	ctx.stmts = nil
+	subCtx := ctx.Folk()
 	for _, s := range mt.Stmts {
-		con, err := s.Execute(ctx)
+		con, err := s.Execute(subCtx)
 		if !con || err != nil {
 			return con, err
 		}

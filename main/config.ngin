@@ -8,6 +8,9 @@ cert-file = "";
 # listen tls, please file the below line
 key-file = "";
 
+# config redis
+redis-cfg;
+
 listen 6000 {
     # generate a request-id
     header.request-id == null {
@@ -23,20 +26,26 @@ listen 6000 {
         path !~ /apis/login | /apis/register | /apis/idinfo {
             header.Authorization ~ .* {
                 # authentication
-                call [ POST http://127.0.0.1:6080/apis/auth ];
-                response.code == 200 {
-                    # forward
-                    call;
+                authinfo = redis-get header.Authorization;
+                authinfo == null {
+                    response.code = 401;
+                    return;
                 }
+                redis-set header.Authorzation authinfo 300;
+                authinfo = json-decode authinfo;
+                header.user-id = authinfo.user-id;
+                forward;
                 return;
             }
+            response.code = 401;
+            return;
         }
         # forward to backend
-        call;
+        forward;
     }
 }
 
 # for another system
-listen 7000 {
-    call http://127.0.0.1:5050;
-}
+# listen 7000 {
+#     call http://127.0.0.1:5050;
+# }

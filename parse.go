@@ -109,20 +109,39 @@ func (p *Parser) Stmt() (Stmt, error) {
 }
 
 func (p *Parser) smallStmt() (Stmt, error) {
-	var left, right Value
-	var operator Operator
 	switch p.token.Type {
 	case TokenReturn:
 		p.useToken()
 		return ReturnStmt{}, nil
-	case TokenName:
-		left = &Variable{Name: string(p.token.Raw)}
-		p.useToken()
+	default:
+		v, err := p.nameOrValue()
+		if err != nil {
+			return nil, err
+		}
+		if v == nil {
+			return nil, ErrUnexpectedToken(&p.token)
+		}
+		var right Value
 		if err := p.nextToken(); err != nil {
 			return nil, err
 		}
+		if variable, ok := v.(*Variable); ok {
+			switch p.token.Type {
+			case TokenAssignment:
+				p.useToken()
+				if err := p.nextToken(); err != nil {
+					return nil, err
+				}
+				if right, err = p.nameOrValue(); err != nil {
+					return nil, err
+				}
+				return AssignmentStmt{Name: variable.Name, Value: right}, nil
+			case TokenStmtEnd, TokenBlockBegin:
+				return FuncStmt{Name: variable.Name, Args: variable.Args}, nil
+			}
+		}
 		var ok bool
-		var err error
+		var operator Operator
 		if operator, ok = operatorMap[p.token.Type]; ok {
 			p.useToken()
 			if err := p.nextToken(); err != nil {
@@ -131,66 +150,9 @@ func (p *Parser) smallStmt() (Stmt, error) {
 			if right, err = p.nameOrValue(); err != nil {
 				return nil, err
 			}
-			return MatchStmt{Left: left, Operator: operator, Right: right}, nil
-		} else if p.token.Type == TokenAssignment {
-			p.useToken()
-			if err := p.nextToken(); err != nil {
-				return nil, err
-			}
-			if right, err = p.nameOrValue(); err != nil {
-				return nil, err
-			}
-			return AssignmentStmt{Name: left.(*Variable).Name, Value: right}, nil
-		} else if p.token.Type == TokenFuncArgBegin {
-			p.useToken()
-			var args []Value
-			for {
-				if err = p.nextToken(); err != nil {
-					return nil, err
-				}
-				var v Value
-				if v, err = p.nameOrValue(); err != nil {
-					return nil, err
-				} else if v == nil {
-					if p.token.Type == TokenFuncArgEnd {
-						p.useToken()
-						return FuncStmt{Name: left.(*Variable).Name, Args: args}, nil
-					}
-					return nil, ErrUnexpectedToken(&p.token)
-				}
-				args = append(args, v)
-			}
+			return MatchStmt{Left: v, Operator: operator, Right: right}, nil
 		}
-		var v Value
-		if v, err = p.nameOrValue(); err != nil {
-			return nil, err
-		} else if v == nil {
-			// no args func
-			return FuncStmt{Name: left.(*Variable).Name}, nil
-		}
-		return FuncStmt{Name: left.(*Variable).Name, Args: []Value{v}}, nil
-	default:
-		var err error
-		var ok bool
-		// as a match statement
-		if left, err = p.nameOrValue(); err != nil {
-			return nil, err
-		}
-		if left == nil {
-			return nil, ErrUnexpectedToken(&p.token)
-		}
-		p.useToken()
-		if operator, ok = operatorMap[p.token.Type]; !ok {
-			return nil, ErrUnexpectedToken(&p.token)
-		}
-		p.useToken()
-		if right, err = p.nameOrValue(); err != nil {
-			return nil, err
-		}
-		if right == nil {
-			return nil, ErrUnexpectedToken(&p.token)
-		}
-		return MatchStmt{Left: left, Operator: operator, Right: right}, nil
+		return nil, ErrUnexpectedToken(&p.token)
 	}
 }
 
@@ -216,6 +178,7 @@ func (p *Parser) nameOrValue() (Value, error) {
 		return ret, nil
 	}
 	p.useToken()
+	va, isVar := ret.(*Variable)
 	for {
 		if err := p.nextToken(); err != nil {
 			return nil, err
@@ -226,16 +189,37 @@ func (p *Parser) nameOrValue() (Value, error) {
 			if err := p.nextToken(); err != nil {
 				return nil, err
 			}
-			if v := getValue(); v != nil {
+			n := getValue()
+			if isVar && len(va.Args) > 0 {
+				p.useToken()
+				v := va.Args[len(va.Args)-1]
+				if v != nil {
+					r := v.Slice()
+					r = append(r, n)
+					va.Args[len(va.Args)-1] = Slice(r)
+					continue
+				}
+			} else if !isVar {
 				p.useToken()
 				r := ret.Slice()
-				r = append(r, v)
+				r = append(r, n)
 				ret = Slice(r)
 				continue
+			} else {
+				ret = Slice([]Value{ret, n})
+				continue
 			}
-			return ret, errors.New("unexpected token")
+			return ret, ErrUnexpectedToken(&p.token)
+		case isVar:
+			v := getValue()
+			if v == nil {
+				return va, nil
+			}
+			va.Args = append(va.Args, v)
+			p.useToken()
+		default:
+			return ret, nil
 		}
-		return ret, nil
 	}
 }
 
@@ -250,7 +234,7 @@ func (p *Parser) nextToken() (err error) {
 		p.useToken()
 		return p.nextToken()
 	}
-	// fmt.Printf("token: %s\n", p.token.String())
+	fmt.Printf("token: %s\n", p.token.String())
 	return
 }
 

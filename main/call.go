@@ -62,7 +62,7 @@ func call(ctx *ngin.Context, args ...ngin.Value) (bool, error) {
 		ctx.BindValue("response."+k, ngin.String(resp.Header.Get(k)))
 	}
 	ctx.BindValue("response.code", ngin.Int(uint64(resp.StatusCode)))
-	ctx.BindValuedFunc("responseBody", func(_ *ngin.Context) ngin.Value {
+	ctx.BindValuedFunc("responseBody", func(_ *ngin.Context, args ...ngin.Value) ngin.Value {
 		bs, err := io.ReadAll(resp.Body)
 		defer resp.Body.Close()
 		if err != nil {

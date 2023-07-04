@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"testing"
 
+	"github.com/dev-mockingbird/logf"
 	"github.com/dev-mockingbird/ngin"
 	"github.com/google/uuid"
 )
@@ -17,7 +18,7 @@ func TestParse(t *testing.T) {
 	bs := bytes.NewBuffer([]byte(`
 # the whitespace is very important, please remember use it around any meaningful token
 {
-	var [ header response host path ];
+	var header response host path;
     header.request-id == null {
         header.request-id = uuid;
     }
@@ -26,7 +27,7 @@ func TestParse(t *testing.T) {
         host == hello.com | world.com {
             backend 127.0.0.1:6090 | 127.0.0.1:6091;
             header.Authorization ~ .+ {
-                call [ POST http://127.0.0.1:6080/authentication ];
+                call POST http://127.0.0.1:6080/authentication;
                 response.code == 200 {
                     header.user-id = response.userId;
                 }
@@ -45,6 +46,7 @@ func TestParse(t *testing.T) {
 	p := ngin.Parser{Lexer: lexer, Reader: bs}
 	stmts, err := p.Parse()
 	if err != nil {
+		logf.New().Logf(logf.Error, "err: %s", err.Error())
 		t.Fatal(err)
 	}
 	ctx := ngin.NewContext()
@@ -67,7 +69,7 @@ func TestParse(t *testing.T) {
 	})
 	ctx.BindValue("header.Authorization", ngin.String("xxx"))
 	ctx.BindValue("host", ngin.String("hello.com"))
-	ctx.BindValuedFunc("uuid", func(ctx *ngin.Context) ngin.Value {
+	ctx.BindValuedFunc("uuid", func(ctx *ngin.Context, args ...ngin.Value) ngin.Value {
 		return ngin.String(uuid.NewString())
 	})
 	for _, s := range stmts {
