@@ -207,6 +207,8 @@ func (p *Parser) nameOrValue() (Value, error) {
 				continue
 			} else {
 				ret = Slice([]Value{ret, n})
+				p.useToken()
+				isVar = false
 				continue
 			}
 			return ret, ErrUnexpectedToken(&p.token)
