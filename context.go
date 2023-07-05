@@ -1,6 +1,7 @@
 package ngin
 
 import (
+	"reflect"
 	"strings"
 
 	"github.com/dev-mockingbird/logf"
@@ -18,6 +19,104 @@ type Value interface {
 	Slice() []Value
 	Compare(Value) int
 	Value() Value
+}
+
+func ToValue(m any) Value {
+	rv := reflect.ValueOf(m)
+	for rv.Kind() == reflect.Ptr {
+		rv = rv.Elem()
+	}
+	switch rv.Kind() {
+	case reflect.Array, reflect.Slice:
+		ret := []Value{}
+		for i := 0; i < rv.Len(); i++ {
+			val := rv.Index(i)
+			if val.CanInterface() {
+				ret = append(ret, ToValue(val.Interface()))
+			}
+		}
+		return Slice(ret)
+	case reflect.Bool:
+		return Bool(rv.Interface().(bool))
+	case reflect.Float32:
+		return Float(float64(rv.Interface().(float32)))
+	case reflect.Float64:
+		return Float(rv.Interface().(float64))
+	case reflect.Uint:
+		return Int(uint64(uint64(rv.Interface().(uint))))
+	case reflect.Uint8:
+		return Int(uint64(uint64(rv.Interface().(uint8))))
+	case reflect.Uint16:
+		return Int(uint64(rv.Interface().(uint16)))
+	case reflect.Uint32:
+		return Int(uint64(rv.Interface().(uint32)))
+	case reflect.Uint64:
+		return Int(uint64(rv.Interface().(uint64)))
+	case reflect.Int:
+		return Int(uint64(uint64(rv.Interface().(int))))
+	case reflect.Int8:
+		return Int(uint64(uint64(rv.Interface().(int8))))
+	case reflect.Int16:
+		return Int(uint64(rv.Interface().(int16)))
+	case reflect.Int32:
+		return Int(uint64(rv.Interface().(int32)))
+	case reflect.Int64:
+		return Int(uint64(rv.Interface().(int64)))
+	case reflect.String:
+		return String(rv.Interface().(string))
+	case reflect.Map:
+		ret := NewComplex()
+		for _, k := range rv.MapKeys() {
+			if k.Kind() != reflect.String {
+				continue
+			}
+			val := rv.MapIndex(k)
+			if !val.CanInterface() || !k.CanInterface() {
+				continue
+			}
+			ret.SetAttr(k.Interface().(string), ToValue(val.Interface()))
+		}
+		return ret
+	case reflect.Struct:
+		ret := NewComplex()
+		for i := 0; i < rv.NumField(); i++ {
+			k := rv.Type().Field(i).Name
+			fv := rv.Field(i)
+			if !fv.CanInterface() {
+				continue
+			}
+			ret.SetAttr(k, ToValue(fv.Interface()))
+		}
+		return ret
+	}
+	return nil
+}
+
+func FromValue(v Value) any {
+	if c, ok := v.(*Complex); ok {
+		ret := make(map[string]any)
+		for k, val := range c.attributes {
+			ret[k] = FromValue(val)
+		}
+		return ret
+	} else if s, ok := v.(Slice); ok {
+		ret := make([]any, len(s))
+		for i, val := range s {
+			ret[i] = FromValue(val)
+		}
+		return ret
+	} else if _, ok := v.(Null); ok {
+		return nil
+	} else if s, ok := v.(str); ok {
+		return s.content
+	} else if s, ok := v.(it); ok {
+		return s.value
+	} else if s, ok := v.(bol); ok {
+		return s.value
+	} else if s, ok := v.(bs); ok {
+		return string(s.content)
+	}
+	return v.String()
 }
 
 type Variable struct {

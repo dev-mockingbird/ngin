@@ -7,6 +7,7 @@ package main
 
 import (
 	"encoding/json"
+	"reflect"
 
 	"github.com/dev-mockingbird/logf"
 	"github.com/dev-mockingbird/ngin"
@@ -20,8 +21,9 @@ func decodeJson(ctx *ngin.Context, args ...ngin.Value) ngin.Value {
 	ret := make(map[string]any)
 	if err := json.Unmarshal(args[0].Bytes(), &ret); err != nil {
 		ctx.Logger().Logf(logf.Error, "json unmarshal: %s", err.Error())
+		return ngin.Null{}
 	}
-	return ngin.FromMap(ret)
+	return ngin.ToValue(ret)
 }
 
 func encodeJson(ctx *ngin.Context, args ...ngin.Value) ngin.Value {
@@ -29,10 +31,12 @@ func encodeJson(ctx *ngin.Context, args ...ngin.Value) ngin.Value {
 		ctx.Logger().Logf(logf.Error, "you should provide the args for json encode")
 		return ngin.Null{}
 	}
-	m := ngin.ToMap(args[0].(*ngin.Complex))
-	bs, err := json.Marshal(m)
+	m := ngin.FromValue(args[0])
+	mr := reflect.ValueOf(m)
+	bs, err := json.Marshal(mr.Addr().Interface())
 	if err != nil {
 		ctx.Logger().Logf(logf.Error, "json marshal: %s", err.Error())
+		return ngin.Null{}
 	}
 	return ngin.Bytes(bs)
 }

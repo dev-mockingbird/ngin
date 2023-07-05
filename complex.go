@@ -38,7 +38,7 @@ func (c *Complex) String() string {
 }
 
 func (c *Complex) Bytes() []byte {
-	bs, err := json.Marshal(ToMap(c))
+	bs, err := json.Marshal(FromValue(c))
 	if err != nil {
 		panic(err)
 	}
@@ -66,14 +66,6 @@ func (c *Complex) SetAttr(attr string, val Value) {
 		c.attributes[attr[:idx]] = &Complex{attributes: make(map[string]Value)}
 	}
 	c.attributes[attr[:idx]].(*Complex).SetAttr(attr[idx+1:], val)
-}
-
-func FromMap(m map[string]any) *Complex {
-	return nil
-}
-
-func ToMap(c *Complex) map[string]any {
-	return nil
 }
 
 func (c *Complex) Attr(attr string) Value {
