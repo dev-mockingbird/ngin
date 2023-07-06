@@ -8,32 +8,30 @@ import (
 )
 
 const (
-	TokenEmpty        = iota
-	TokenNull         // 'null'
-	TokenReturn       // 'return'
-	TokenTrue         // 'true'
-	TokenFalse        // 'false'
-	TokenEQ           // '=='
-	TokenNEQ          // '!='
-	TokenGTE          // '>='
-	TokenGT           // '>'
-	TokenLTE          // '<='
-	TokenLT           // '<'
-	TokenAssignment   // '='
-	TokenOR           // '||'
-	TokenAND          // '&&'
-	TokenSep          // '|'
-	TokenLike         // '~'
-	TokenNotLike      // '!~'
-	TokenStrSep       // '"'
-	TokenStmtEnd      // ';'
-	TokenBlockBegin   // '{'
-	TokenBlockEnd     // '}'
-	TokenFuncArgBegin // '['
-	TokenFuncArgEnd   // ']'
-	TokenName         // ''
-	TokenFloat        // ''
-	TokenComment      // '# xxxx\n'
+	TokenEmpty      = iota
+	TokenNull       // 'null'
+	TokenReturn     // 'return'
+	TokenTrue       // 'true'
+	TokenFalse      // 'false'
+	TokenEQ         // '=='
+	TokenNEQ        // '!='
+	TokenGTE        // '>='
+	TokenGT         // '>'
+	TokenLTE        // '<='
+	TokenLT         // '<'
+	TokenAssignment // '='
+	TokenOR         // '||'
+	TokenAND        // '&&'
+	TokenSep        // '|'
+	TokenLike       // '~'
+	TokenNotLike    // '!~'
+	TokenStrSep     // '"'
+	TokenStmtEnd    // ';'
+	TokenBlockBegin // '{'
+	TokenBlockEnd   // '}'
+	TokenName       // ''
+	TokenFloat      // ''
+	TokenComment    // '# xxxx\n'
 	TokenInt
 	TokenBool
 	TokenString
@@ -44,27 +42,25 @@ var tokenMap map[int]string
 
 func init() {
 	tokenMap = map[int]string{
-		TokenNull:         "null",
-		TokenReturn:       "return",
-		TokenTrue:         "true",
-		TokenFalse:        "false",
-		TokenEQ:           "==",
-		TokenNEQ:          "!=",
-		TokenGTE:          ">=",
-		TokenGT:           ">",
-		TokenLTE:          "<=",
-		TokenLT:           "<",
-		TokenAssignment:   "=",
-		TokenOR:           "||",
-		TokenAND:          "&&",
-		TokenSep:          "|",
-		TokenLike:         "~",
-		TokenNotLike:      "!~",
-		TokenStmtEnd:      ";",
-		TokenBlockBegin:   "{",
-		TokenBlockEnd:     "}",
-		TokenFuncArgBegin: "[",
-		TokenFuncArgEnd:   "]",
+		TokenNull:       "null",
+		TokenReturn:     "return",
+		TokenTrue:       "true",
+		TokenFalse:      "false",
+		TokenEQ:         "==",
+		TokenNEQ:        "!=",
+		TokenGTE:        ">=",
+		TokenGT:         ">",
+		TokenLTE:        "<=",
+		TokenLT:         "<",
+		TokenAssignment: "=",
+		TokenOR:         "||",
+		TokenAND:        "&&",
+		TokenSep:        "|",
+		TokenLike:       "~",
+		TokenNotLike:    "!~",
+		TokenStmtEnd:    ";",
+		TokenBlockBegin: "{",
+		TokenBlockEnd:   "}",
 	}
 }
 
@@ -506,12 +502,6 @@ func (l *Lexer) stateStart(t *Token) error {
 		l.state = stateEnd
 	case '}':
 		t.Type = TokenBlockEnd
-		l.state = stateEnd
-	case '[':
-		t.Type = TokenFuncArgBegin
-		l.state = stateEnd
-	case ']':
-		t.Type = TokenFuncArgEnd
 		l.state = stateEnd
 	case '!':
 		l.state = stateNot

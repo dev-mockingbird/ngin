@@ -29,13 +29,14 @@ func init() {
 	}
 }
 
-// Stmt -> Stmt? { Stmt;* } | BoolStmt; | AssignmentStmt; | CallStmt;
+// Stmt -> Stmt? { Stmt;* } | SimpleStmt;
+// SimpleStmt -> BoolStmt | AssignmentStmt | CallStmt
 // BoolStmt -> ComparableValue Operator ComparableValue
 // ComparableValue -> Array | Name | Value
 // Array -> Name | Value '|' Name | Value
 // Operator -> GT | LT | GTE | LTE | LIKE | NotLike | EQ | NEQ
 // AssignmentStmt -> Name = Value
-// CallStmt -> Name [ Name | Value *]
+// CallStmt -> Name Name|Value*
 type Parser struct {
 	Lexer  *Lexer
 	Reader io.Reader

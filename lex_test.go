@@ -17,7 +17,7 @@ func TestLex(t *testing.T) {
         host == hello.com | world.com {
             backend 127.0.0.1:6090 | 127.0.0.1:6091;
             header.Authorization ~ * {
-                call [ POST http://127.0.0.1:6080/authentication ];
+                call POST http://127.0.0.1:6080/authentication;
                 response.code == 200 {
                     header.user-id = response.userId;
                 }
