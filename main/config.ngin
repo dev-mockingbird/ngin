@@ -19,12 +19,12 @@ listen 6000 {
     # attach request-id to response
     response.header.request-id = header.request-id;
 
-    host == 127.0.0.1:6000 | "hello.com" | "world.com" {
+    host == 127.0.0.1:6000 | hello.com | world.com {
         # load balancer backend
         backend http://127.0.0.1:6090 | http://127.0.0.1:6091;
 
-        path !~ /apis/login | /apis/register | /apis/idinfo {
-            header.Authorization ~ .* {
+        path != /apis/login | /apis/register | /apis/idinfo {
+            header.Authorization ~ .+ {
                 # authentication
                 authinfo = redis-get header.Authorization;
                 authinfo == null {
@@ -38,8 +38,10 @@ listen 6000 {
                 return;
             }
             response.code = 401;
+            response.body = unauthorized;
             return;
         }
+        
         # forward to backend
         forward;
     }

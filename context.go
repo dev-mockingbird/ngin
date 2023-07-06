@@ -123,19 +123,14 @@ type Variable struct {
 	Name    string
 	Args    []Value
 	Context *Context
-	value   Value
 }
 
 func (v *Variable) Value() Value {
-	if v.value != nil {
-		return v.value
-	}
 	if v.Context == nil {
 		return Null{}
 	}
 	if f := v.Context.GetValuedFunc(v.Name); f != nil {
-		v.value = f(v.Context, v.Args...)
-		return v.value
+		return f(v.Context, v.Args...)
 	}
 	if v.Context.IsVar(v.Name) {
 		return v.Context.GetValue(v.Name)
@@ -242,7 +237,13 @@ func (ctx *Context) Put(name string, val any) {
 }
 
 func (ctx *Context) Get(name string) any {
-	return ctx.bag[name]
+	if v, ok := ctx.bag[name]; ok {
+		return v
+	}
+	if ctx.parent != nil {
+		return ctx.parent.Get(name)
+	}
+	return nil
 }
 
 func defineVar(ctx *Context, args ...Value) (bool, error) {
