@@ -12,6 +12,10 @@ import (
 	"sync"
 
 	"github.com/dev-mockingbird/ngin"
+	"github.com/dev-mockingbird/ngin/encoding"
+	"github.com/dev-mockingbird/ngin/listen"
+	"github.com/dev-mockingbird/ngin/log"
+	"github.com/dev-mockingbird/ngin/redis"
 )
 
 func main() {
@@ -24,14 +28,10 @@ func main() {
 		os.Exit(1)
 	}
 	ctx := ngin.NewContext()
-	ctx.BindFunc("listen", listen)
-	ctx.BindFunc("call", call)
-	ctx.BindFunc("backend", backend)
-	ctx.BindValuedFunc("decode-json", decodeJson)
-	ctx.BindValuedFunc("encode-json", encodeJson)
-	ctx.BindFunc("redis-cfg", redis_cfg)
-	ctx.BindFunc("redis-set", redis_set)
-	ctx.BindValuedFunc("redis-get", redis_get)
+	listen.Init(ctx)
+	log.Init(ctx)
+	encoding.Init(ctx)
+	redis.Init(ctx)
 	parser := ngin.Parser{Lexer: ngin.NewLexer(), Reader: fs}
 	stmts, err := parser.Parse()
 	if err != nil {
@@ -41,13 +41,12 @@ func main() {
 	var wg sync.WaitGroup
 	for _, stmt := range stmts {
 		wg.Add(1)
-		go func(stmt ngin.Stmt, ctx *ngin.Context) {
-			ctx = ctx.Folk()
-			if _, err := stmt.Execute(ctx); err != nil {
-				fmt.Printf("%s\n", err.Error())
-			}
-			wg.Done()
-		}(stmt, ctx)
+		// go func(stmt ngin.Stmt, ctx *ngin.Context) {
+		if _, err := stmt.Execute(ctx); err != nil {
+			fmt.Printf("%s\n", err.Error())
+		}
+		wg.Done()
+		// }(stmt, ctx)
 	}
 	wg.Wait()
 }

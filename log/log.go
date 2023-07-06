@@ -3,7 +3,7 @@
 // This software is released under the MIT License.
 // https://opensource.org/licenses/MIT
 
-package main
+package log
 
 import (
 	"strings"
@@ -12,7 +12,11 @@ import (
 	"github.com/dev-mockingbird/ngin"
 )
 
-func log(ctx *ngin.Context, args ...ngin.Value) (bool, error) {
+func Init(ctx *ngin.Context) {
+	ctx.BindFunc("log", Log)
+}
+
+func Log(ctx *ngin.Context, args ...ngin.Value) (bool, error) {
 	if len(args) < 1 {
 		ctx.Logger().Logf(logf.Warn, "log with nothing")
 		return true, nil

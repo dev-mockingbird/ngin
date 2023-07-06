@@ -3,7 +3,7 @@
 // This software is released under the MIT License.
 // https://opensource.org/licenses/MIT
 
-package main
+package encoding
 
 import (
 	"encoding/json"
@@ -13,7 +13,12 @@ import (
 	"github.com/dev-mockingbird/ngin"
 )
 
-func decodeJson(ctx *ngin.Context, args ...ngin.Value) ngin.Value {
+func Init(ctx *ngin.Context) {
+	ctx.BindValuedFunc("decode-json", DecodeJson)
+	ctx.BindValuedFunc("encode-json", EncodeJson)
+}
+
+func DecodeJson(ctx *ngin.Context, args ...ngin.Value) ngin.Value {
 	if len(args) == 0 {
 		ctx.Logger().Logf(logf.Error, "you should provide the args for json decode")
 		return ngin.Null{}
@@ -26,7 +31,7 @@ func decodeJson(ctx *ngin.Context, args ...ngin.Value) ngin.Value {
 	return ngin.ToValue(ret)
 }
 
-func encodeJson(ctx *ngin.Context, args ...ngin.Value) ngin.Value {
+func EncodeJson(ctx *ngin.Context, args ...ngin.Value) ngin.Value {
 	if len(args) == 0 {
 		ctx.Logger().Logf(logf.Error, "you should provide the args for json encode")
 		return ngin.Null{}

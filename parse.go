@@ -236,7 +236,7 @@ func (p *Parser) nextToken() (err error) {
 		p.useToken()
 		return p.nextToken()
 	}
-	fmt.Printf("token: %s\n", p.token.String())
+	// fmt.Printf("token: %s\n", p.token.String())
 	return
 }
 

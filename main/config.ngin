@@ -9,7 +9,7 @@ cert-file = "";
 key-file = "";
 
 # config redis
-redis-cfg;
+config-redis;
 
 listen 6000 {
     # generate a request-id

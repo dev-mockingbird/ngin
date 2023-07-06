@@ -1,4 +1,4 @@
-package main
+package redis
 
 import (
 	"context"
@@ -11,7 +11,13 @@ import (
 
 var redis_cli *redis.Client
 
-func redis_cfg(ctx *ngin.Context, args ...ngin.Value) (bool, error) {
+func Init(ctx *ngin.Context) {
+	ctx.BindFunc("config-redis", ConfigRedis)
+	ctx.BindFunc("redis-set", RedisSet)
+	ctx.BindValuedFunc("redis-get", RedisGet)
+}
+
+func ConfigRedis(ctx *ngin.Context, args ...ngin.Value) (bool, error) {
 	opt := &redis.Options{}
 	if len(args) >= 1 {
 		opt.Addr = args[0].String()
@@ -29,7 +35,7 @@ func redis_cfg(ctx *ngin.Context, args ...ngin.Value) (bool, error) {
 	return true, nil
 }
 
-func redis_set(ctx *ngin.Context, args ...ngin.Value) (bool, error) {
+func RedisSet(ctx *ngin.Context, args ...ngin.Value) (bool, error) {
 	if redis_cli == nil {
 		ctx.Logger().Logf(logf.Error, "you should call redis_cfg before use it")
 		return false, nil
@@ -52,7 +58,7 @@ func redis_set(ctx *ngin.Context, args ...ngin.Value) (bool, error) {
 	return true, nil
 }
 
-func redis_get(ctx *ngin.Context, args ...ngin.Value) ngin.Value {
+func RedisGet(ctx *ngin.Context, args ...ngin.Value) ngin.Value {
 	if redis_cli == nil {
 		ctx.Logger().Logf(logf.Error, "you should call redis_cfg before use it")
 		return ngin.Null{}

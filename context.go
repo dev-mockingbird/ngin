@@ -276,7 +276,7 @@ func (ctx *Context) IsVar(name string) bool {
 		return true
 	}
 	if ctx.parent != nil {
-		return ctx.parent.isVar(name)
+		return ctx.parent.IsVar(name)
 	}
 	return false
 }
