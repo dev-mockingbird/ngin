@@ -45,6 +45,13 @@ func (c *Complex) Bytes() []byte {
 	return bs
 }
 
+func (c *Complex) WithContext(ctx *Context) Value {
+	for _, v := range c.attributes {
+		v.WithContext(ctx)
+	}
+	return c
+}
+
 func (c *Complex) Slice() []Value {
 	return []Value{c}
 }

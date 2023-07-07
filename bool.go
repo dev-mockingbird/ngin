@@ -13,6 +13,10 @@ func Bool(value bool) Value {
 	return bol{value: value}
 }
 
+func (b bol) WithContext(*Context) Value {
+	return b
+}
+
 func (b bol) Int() uint64 {
 	if b.value {
 		return 1

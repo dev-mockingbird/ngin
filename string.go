@@ -13,6 +13,10 @@ func String(s string) Value {
 	return str{content: s}
 }
 
+func (str str) WithContext(*Context) Value {
+	return str
+}
+
 func (str str) Int() uint64 {
 	ret, err := strconv.ParseUint(str.content, 10, 64)
 	if err != nil {

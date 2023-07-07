@@ -114,9 +114,10 @@ func (listener) RequestFromContext(ctx *ngin.Context) (*http.Request, error) {
 		return nil, errors.New("can't get request from context")
 	}
 	req := r.(*http.Request)
+	req.RequestURI = ""
 	req.URL.Scheme = ctx.GetValue("scheme").String()
 	req.URL.Host = ctx.GetValue("host").String()
-	keys := ctx.GetValue("header.*").Slice()
+	keys := ctx.GetAttr("header").Slice()
 	if req.Header == nil {
 		req.Header = make(http.Header)
 	}
@@ -126,7 +127,7 @@ func (listener) RequestFromContext(ctx *ngin.Context) (*http.Request, error) {
 			req.Header.Set(k, v)
 		}
 	}
-	keys = ctx.GetValue("query.*").Slice()
+	keys = ctx.GetAttr("query").Slice()
 	query := req.URL.Query()
 	for _, key := range keys {
 		if k := key.String(); k != "" {
@@ -156,17 +157,27 @@ func (h listener) call(ctx *ngin.Context, args ...ngin.Value) (bool, error) {
 		return false, nil
 	}
 	for k := range resp.Header {
-		ctx.BindValue("response."+k, ngin.String(resp.Header.Get(k)))
+		ctx.BindValue("response.header."+k, ngin.String(resp.Header.Get(k)))
 	}
 	ctx.BindValue("response.code", ngin.Int(uint64(resp.StatusCode)))
-	ctx.BindValuedFunc("responseBody", func(_ *ngin.Context, args ...ngin.Value) ngin.Value {
-		bs, err := io.ReadAll(resp.Body)
-		defer resp.Body.Close()
+	var body []byte
+	ctx.BindValuedFunc("read-response-body", func(_ *ngin.Context, args ...ngin.Value) ngin.Value {
+		if resp.Body == nil {
+			return ngin.Bytes(body)
+		}
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				ctx.Logger().Logf(logf.Error, "close body: %s", err.Error())
+			}
+			resp.Body = nil
+		}()
+		var err error
+		body, err = io.ReadAll(resp.Body)
 		if err != nil {
 			ctx.Logger().Logf(logf.Error, "read response body: %s", err.Error())
 			return ngin.Null{}
 		}
-		return ngin.Bytes(bs)
+		return ngin.Bytes(body)
 	})
 	return true, nil
 }
@@ -177,6 +188,7 @@ type httpHandler struct {
 
 func (h httpHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	ctx := h.ctx.Folk()
+	ctx.Declare("read-response-body")
 	h.withRequest(ctx, req)
 	var ok bool
 	var err error
@@ -199,7 +211,7 @@ func (h httpHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		w.Write(body.Bytes())
 		return
 	}
-	if f := ctx.GetValuedFunc("responseBody"); f != nil {
+	if f := ctx.GetValuedFunc("read-response-body"); f != nil {
 		w.Write(f(ctx).Bytes())
 	}
 }
@@ -207,7 +219,7 @@ func (h httpHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 func (h httpHandler) withRequest(ctx *ngin.Context, req *http.Request) *ngin.Context {
 	ctx.Declare("path", "hash", "scheme", "host", "user-agent", "remote-addr", "method", "header", "response", "query")
 	ctx.Put("request", req)
-	ctx.BindValuedFunc("body", h.requestBody)
+	ctx.BindValuedFunc("read-request-body", h.requestBody)
 	for k := range req.Header {
 		vals := req.Header.Values(k)
 		if len(vals) == 1 {

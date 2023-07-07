@@ -19,6 +19,10 @@ func (Null) Int() uint64 {
 	return 0
 }
 
+func (n Null) WithContext(*Context) Value {
+	return n
+}
+
 func (Null) Float() float64 {
 	return 0
 }

@@ -13,6 +13,10 @@ func Bytes(bytes []byte) Value {
 	return bs{content: bytes}
 }
 
+func (bytes bs) WithContext(*Context) Value {
+	return bytes
+}
+
 func (bytes bs) Int() uint64 {
 	r, err := strconv.ParseUint(bytes.String(), 10, 64)
 	if err != nil {

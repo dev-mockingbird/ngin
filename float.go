@@ -15,6 +15,10 @@ func Float(value float64) Value {
 	return flt{value: value}
 }
 
+func (f flt) WithContext(*Context) Value {
+	return f
+}
+
 func (f flt) Int() uint64 {
 	return uint64(f.value)
 }

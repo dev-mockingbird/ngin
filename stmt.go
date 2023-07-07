@@ -39,26 +39,18 @@ type MatchStmt struct {
 }
 
 func (m MatchStmt) Execute(ctx *Context) (bool, error) {
-	left := m.Left
-	if v, ok := left.(*Variable); ok {
-		v.Context = ctx
-		left = v
-	}
-	right := m.Right
-	if v, ok := right.(*Variable); ok {
-		v.Context = ctx
-		right = v
-	}
+	left := m.Left.WithContext(ctx)
+	right := m.Right.WithContext(ctx)
 	switch m.Operator {
 	case EQ:
 		if s, ok := right.(Slice); ok {
-			return s.WithContext(ctx).Contain(left), nil
+			return s.Contain(left), nil
 		}
 		r := left.Compare(right)
 		return r == 0, nil
 	case NEQ:
 		if s, ok := right.(Slice); ok {
-			return !s.WithContext(ctx).Contain(left), nil
+			return !s.Contain(left), nil
 		}
 		r := left.Compare(right)
 		return r != 0, nil
@@ -83,7 +75,6 @@ func (m MatchStmt) Execute(ctx *Context) (bool, error) {
 			return re.MatchString(l), nil
 		}
 		if s, ok := right.(Slice); ok {
-			s = s.WithContext(ctx)
 			for _, item := range s {
 				if ok, err := like(left.String(), item.String()); err != nil || ok {
 					return ok, err
@@ -101,7 +92,6 @@ func (m MatchStmt) Execute(ctx *Context) (bool, error) {
 			return re.MatchString(l), nil
 		}
 		if s, ok := right.(Slice); ok {
-			s = s.WithContext(ctx)
 			for _, item := range s {
 				if ok, err := like(left.String(), item.String()); err != nil || ok {
 					return !ok, err
@@ -125,7 +115,7 @@ func (a AssignmentStmt) Execute(ctx *Context) (bool, error) {
 	if v, ok := a.Value.(*Variable); ok {
 		v.Context = ctx
 	}
-	ctx.BindValue(a.Name, a.Value)
+	ctx.BindValue(a.Name, a.Value.Value())
 	return true, nil
 }
 

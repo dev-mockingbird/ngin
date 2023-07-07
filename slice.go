@@ -6,15 +6,10 @@ func (s Slice) Slice() []Value {
 	return s
 }
 
-func (s Slice) WithContext(ctx *Context) Slice {
+func (s Slice) WithContext(ctx *Context) Value {
 	ret := make(Slice, len(s))
 	for i, v := range s {
-		if va, ok := v.(*Variable); ok {
-			va.Context = ctx
-			ret[i] = va
-			continue
-		}
-		ret[i] = v
+		ret[i] = v.WithContext(ctx)
 	}
 	return ret
 }

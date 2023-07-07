@@ -16,6 +16,8 @@ import (
 func Init(ctx *ngin.Context) {
 	ctx.BindValuedFunc("decode-json", DecodeJson)
 	ctx.BindValuedFunc("encode-json", EncodeJson)
+	ctx.BindValuedFunc("decode-base64", decodeBase64)
+	ctx.BindValuedFunc("encode-base64", encodeBase64)
 }
 
 func DecodeJson(ctx *ngin.Context, args ...ngin.Value) ngin.Value {
@@ -24,7 +26,8 @@ func DecodeJson(ctx *ngin.Context, args ...ngin.Value) ngin.Value {
 		return ngin.Null{}
 	}
 	ret := make(map[string]any)
-	if err := json.Unmarshal(args[0].Bytes(), &ret); err != nil {
+	bs := args[0].WithContext(ctx).Bytes()
+	if err := json.Unmarshal(bs, &ret); err != nil {
 		ctx.Logger().Logf(logf.Error, "json unmarshal: %s", err.Error())
 		return ngin.Null{}
 	}
@@ -36,7 +39,7 @@ func EncodeJson(ctx *ngin.Context, args ...ngin.Value) ngin.Value {
 		ctx.Logger().Logf(logf.Error, "you should provide the args for json encode")
 		return ngin.Null{}
 	}
-	m := ngin.FromValue(args[0])
+	m := ngin.FromValue(args[0].WithContext(ctx))
 	mr := reflect.ValueOf(m)
 	bs, err := json.Marshal(mr.Addr().Interface())
 	if err != nil {

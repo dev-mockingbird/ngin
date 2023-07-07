@@ -20,16 +20,16 @@ func Init(ctx *ngin.Context) {
 func ConfigRedis(ctx *ngin.Context, args ...ngin.Value) (bool, error) {
 	opt := &redis.Options{}
 	if len(args) >= 1 {
-		opt.Addr = args[0].String()
+		opt.Addr = args[0].WithContext(ctx).String()
 	}
 	if len(args) >= 2 {
-		opt.DB = int(args[1].Int())
+		opt.DB = int(args[1].WithContext(ctx).Int())
 	}
 	if len(args) >= 3 {
-		opt.Username = args[2].String()
+		opt.Username = args[2].WithContext(ctx).String()
 	}
 	if len(args) >= 4 {
-		opt.Password = args[3].String()
+		opt.Password = args[3].WithContext(ctx).String()
 	}
 	redis_cli = redis.NewClient(opt)
 	return true, nil
@@ -44,8 +44,8 @@ func RedisSet(ctx *ngin.Context, args ...ngin.Value) (bool, error) {
 		ctx.Logger().Logf(logf.Error, "you should provide at least 2 argments for redis_set")
 		return false, nil
 	}
-	key := args[0].String()
-	val := args[1].String()
+	key := args[0].WithContext(ctx).String()
+	val := args[1].WithContext(ctx).String()
 	expire := time.Duration(0)
 	if len(args) >= 3 {
 		expire = time.Second * time.Duration(args[2].Int())

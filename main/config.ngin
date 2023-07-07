@@ -21,9 +21,9 @@ listen 6000 {
 
     host == 127.0.0.1:6000 | hello.com | world.com {
         # load balancer backend
-        backend http://127.0.0.1:6090 | http://127.0.0.1:6091;
+        backend http://127.0.0.1:9000;
 
-        path != /apis/login | /apis/register | /apis/idinfo {
+        path != /api/v1/signin | /api/v1/signup | /api/v1/idinfo {
             header.Authorization ~ .+ {
                 # authentication
                 authinfo = redis-get header.Authorization;
@@ -31,7 +31,7 @@ listen 6000 {
                     response.code = 401;
                     return;
                 }
-                redis-set header.Authorzation authinfo 300;
+                redis-set header.Authorization authinfo 300;
                 authinfo = json-decode authinfo;
                 header.user-id = authinfo.user-id;
                 forward;
@@ -44,6 +44,15 @@ listen 6000 {
         
         # forward to backend
         forward;
+        response.code != 200 {
+            return;
+        }
+        var resp-body;
+        resp-body = decode-json read-response-body;
+        bid = encode-base64 resp-body.data.session_id;
+        resp-body.data.session_id = bid;
+        redis-set bid read-response-body;
+        response.body = resp-body;
     }
 }
 

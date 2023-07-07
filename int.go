@@ -12,6 +12,10 @@ func Int(v uint64) Value {
 	return it{value: v}
 }
 
+func (it it) WithContext(*Context) Value {
+	return it
+}
+
 func (it it) Int() uint64 {
 	return it.value
 }

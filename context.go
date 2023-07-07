@@ -16,6 +16,7 @@ type Value interface {
 	String() string
 	Bytes() []byte
 	Bool() bool
+	WithContext(ctx *Context) Value
 	Slice() []Value
 	Compare(Value) int
 	Value() Value
@@ -125,12 +126,24 @@ type Variable struct {
 	Context *Context
 }
 
+func (v *Variable) WithContext(ctx *Context) Value {
+	v.Context = ctx
+	return v
+}
+
 func (v *Variable) Value() Value {
 	if v.Context == nil {
 		return Null{}
 	}
 	if f := v.Context.GetValuedFunc(v.Name); f != nil {
-		return f(v.Context, v.Args...)
+		return f(v.Context, func() []Value {
+			for i := 0; i < len(v.Args); i++ {
+				if item, ok := v.Args[i].(*Variable); ok {
+					item.Context = v.Context
+				}
+			}
+			return v.Args
+		}()...)
 	}
 	if v.Context.IsVar(v.Name) {
 		return v.Context.GetValue(v.Name)
@@ -212,7 +225,7 @@ func (ctx *Context) Declare(names ...string) {
 }
 
 func (ctx *Context) BindValue(key string, val Value) {
-	if cctx := ctx.declareAt(key); cctx != nil {
+	if cctx := ctx.declareVarAt(key); cctx != nil {
 		cctx.bindValue(key, val)
 		return
 	}
@@ -258,11 +271,15 @@ func defineVar(ctx *Context, args ...Value) (bool, error) {
 	return true, nil
 }
 
-func (ctx *Context) declareAt(name string) *Context {
+func (ctx *Context) declareVarAt(name string) *Context {
 	idx := strings.Index(name, ".")
 	if idx > -1 {
 		name = name[:idx]
 	}
+	return ctx.declareAt(name)
+}
+
+func (ctx *Context) declareAt(name string) *Context {
 	if _, ok := ctx.vars[name]; ok {
 		return ctx
 	}
@@ -299,6 +316,7 @@ func (ctx *Context) GetValue(key string) Value {
 	if ctx.parent != nil {
 		return ctx.parent.GetValue(key)
 	}
+	ctx.logger.Logf(logf.Debug, "key: %s has no value bind it", key)
 	return Null{}
 }
 
@@ -346,7 +364,12 @@ func (ctx *Context) BindFunc(name string, funk Func) {
 }
 
 func (ctx *Context) BindValuedFunc(name string, funk ValuedFunc) {
+	if cctx := ctx.declareAt(name); cctx != nil {
+		cctx.valuedFunks[name] = funk
+		return
+	}
 	ctx.valuedFunks[name] = funk
+	ctx.Declare(name)
 }
 
 func (ctx *Context) NextStmts() []Stmt {
